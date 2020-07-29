@@ -1,8 +1,8 @@
 # AEMO Parser
-The Australian Energy Market Operator (AEMO) publishes 5 minute settlement data for the National Electricity Market (NEM) in a JSON file at
+The Australian Energy Market Operator (AEMO) publishes 5 minute settlement data for the National Electricity Market (NEM) in a JSON file located at
 https://aemo.com.au/aemo/apps/api/report/ELEC_NEM_SUMMARY
 
-This file includes price and generation/demand data useful for making/scripting demand management decisions. 
+This JSON file includes price and generation/demand data useful for making/scripting demand management decisions. 
 
 ## Dependencies
 This code uses the following libraries
