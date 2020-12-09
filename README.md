@@ -26,4 +26,26 @@ $ make
 $ sudo make install
 ```
 
+## Potential errors
+### Error loading shared libraries
+If you get the following error message 
+```
+error while loading shared libraries: libcjson.so.1: cannot open shared object file: No such file or directory
+```
+execute
+```
+$ ldconfig -v
+```
+### Unsupported protocol
+If you get this message
+```
+curl_easy_perform() failed: Unsupported protocol
+```
+It may be because curl hasn't been compiled with SSL. Run
+```
+$ curl -V
+```
+and check if https is listed as a protocol.
+
+
 
