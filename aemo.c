@@ -4,54 +4,149 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
+#include <time.h>
 
 #define REGION "SA1"
 
-size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-	//printf("Number of bytes %ld\r\n",nmemb);
-	//printf("[%s]",ptr);
+char *strptime(const char *s, const char *format, struct tm *tm);
 
+struct buffer {
+	char *data;
+	size_t pos;
+};
+
+int http_json_request(struct buffer *out_buf);
+
+size_t header_callback(char *buffer, size_t size, size_t nitems, void *user_data)
+{
+	//printf("%.*s", (int)(nitems * size), buffer);
+	return(size * nitems);
+}
+
+size_t write_callback(char *ptr, size_t size, size_t nmemb, void *user_data)
+{
+	struct buffer *out_buf = (struct buffer *)user_data;
+	size_t buffersize = size * nmemb;
+
+	//printf("size %ld, nmemb %ld\r\n",size, nmemb);
+
+	char *newptr = realloc(out_buf->data, (out_buf->pos + buffersize + 1));
+	if (newptr == NULL) {
+		printf("Failed to allocate buffer\r\n");
+		return 0;
+	}
+
+	out_buf->data = newptr;
+	memcpy((void *)(out_buf->data + out_buf->pos), ptr, buffersize);
+	out_buf->pos += buffersize;
+
+	return(size * nmemb);
+}
+
+struct AEMO {
+	struct tm settlement;
+	double price;
+	double totaldemand;
+	double netinterchange;
+	double scheduledgeneration;
+	double semischeduledgeneration;
+};
+
+void parse_aemo_request(char *ptr, struct AEMO *aemo)
+{
 	const cJSON *regions;
 	const cJSON *parameter;
 
 	cJSON *NEM = cJSON_Parse(ptr);
-
-	//char *string = cJSON_Print(json);
-	//printf("%s\r",string);
-	//free(string);
+	if (NEM == NULL) {
+		printf("Unable to parse JSON file\r\n");
+		return;
+	}
 
 	regions = cJSON_GetObjectItemCaseSensitive(NEM, "ELEC_NEM_SUMMARY");
+	if (regions == NULL) {
+		printf("Cannot find ELEC_NEM_SUMMARY object\r\n");
+		return;
+	}
 
 	cJSON_ArrayForEach(parameter, regions)
 	{
 		cJSON *name = cJSON_GetObjectItemCaseSensitive(parameter, "REGIONID");
-		//printf("Region %s\n",name->valuestring);
-		if (strcmp(name->valuestring, REGION) == 0) {
-			cJSON *settlement = cJSON_GetObjectItemCaseSensitive(parameter, "SETTLEMENTDATE");
-			printf("South Australia %s\r\n",settlement->valuestring);
-			cJSON *price = cJSON_GetObjectItemCaseSensitive(parameter, "PRICE");
-			cJSON *totaldemand = cJSON_GetObjectItemCaseSensitive(parameter, "TOTALDEMAND");
-			cJSON *netinterchange = cJSON_GetObjectItemCaseSensitive(parameter, "NETINTERCHANGE");
-			cJSON *scheduledgeneration = cJSON_GetObjectItemCaseSensitive(parameter, "SCHEDULEDGENERATION");
-			cJSON *semischeduledgeneration = cJSON_GetObjectItemCaseSensitive(parameter, "SEMISCHEDULEDGENERATION");
+		if (name != NULL) {
+			//printf("Region %s\n",name->valuestring);
+			if (strcmp(name->valuestring, REGION) == 0) {
+				cJSON *settlement = cJSON_GetObjectItemCaseSensitive(parameter, "SETTLEMENTDATE");
+				if (settlement != NULL) {
+					/* String in the format of 2020-12-19T15:10:00 */
+					if (strptime((char *)settlement->valuestring, "%Y-%m-%dT%H:%M:%S", &aemo->settlement) == NULL)
+						printf("Unable to parse settlement time\r\n");
+				}
 
-			printf("Price: $%.02f\r\n",price->valuedouble);
-			printf("Total Demand: %.02f MW\r\n",totaldemand->valuedouble);
-			printf("Export: %.02f MW\r\n",netinterchange->valuedouble);
-			printf("Scheduled Generation (Baseload): %.02f MW\r\n",scheduledgeneration->valuedouble);
-			printf("Semi Scheduled Generation (Renewable): %.02f MW\r\n",semischeduledgeneration->valuedouble);
+				cJSON *price = cJSON_GetObjectItemCaseSensitive(parameter, "PRICE");
+				if (price != NULL) aemo->price = price->valuedouble;
+				else printf("Can't find %s\r\n", price->string);
 
+				cJSON *totaldemand = cJSON_GetObjectItemCaseSensitive(parameter, "TOTALDEMAND");
+				if (totaldemand != NULL) aemo->totaldemand = totaldemand->valuedouble;
+				else printf("Can't find %s\r\n", totaldemand->string);
+
+				cJSON *netinterchange = cJSON_GetObjectItemCaseSensitive(parameter, "NETINTERCHANGE");
+				if (netinterchange != NULL) aemo->netinterchange = netinterchange->valuedouble;
+				else printf("Can't find %s\r\n", netinterchange->string);
+
+				cJSON *scheduledgeneration = cJSON_GetObjectItemCaseSensitive(parameter, "SCHEDULEDGENERATION");
+				if (scheduledgeneration != NULL) aemo->scheduledgeneration = scheduledgeneration->valuedouble;
+				else printf("Can't find %s\r\n", scheduledgeneration->string);
+
+				cJSON *semischeduledgeneration = cJSON_GetObjectItemCaseSensitive(parameter, "SEMISCHEDULEDGENERATION");
+				if (semischeduledgeneration != NULL) aemo->semischeduledgeneration = semischeduledgeneration->valuedouble;
+				else printf("Can't find %s\r\n", semischeduledgeneration->string);
+			}
 		}
-
 	}
 
 	cJSON_Delete(NEM);
-
-	return(nmemb);
 }
 
+
 int main(void)
+{
+	CURLcode res;
+
+	char *data;
+
+	struct buffer out_buf = {
+		.data = data,
+		.pos = 0
+	};
+
+	struct AEMO aemo;
+
+	/* Allocate a modest buffer now, we can realloc later if needed */
+	out_buf.data = malloc(16384);
+	out_buf.pos = 0;
+
+	res = http_json_request(&out_buf);
+
+	if(res == CURLE_OK) {
+		//printf("Bytes read %ld\r\n",out_buf.pos);
+		parse_aemo_request(out_buf.data, &aemo);
+		printf("Settlement: %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+			aemo.settlement.tm_year + 1900,
+			aemo.settlement.tm_mon + 1,
+			aemo.settlement.tm_mday,
+			aemo.settlement.tm_hour,
+			aemo.settlement.tm_min,
+			aemo.settlement.tm_sec);
+		printf("Price: $%.02f\r\n",aemo.price);
+		printf("Total Demand: %.02f MW\r\n",aemo.totaldemand);
+		printf("Export: %.02f MW\r\n",aemo.netinterchange);
+		printf("Scheduled Generation (Baseload): %.02f MW\r\n",aemo.scheduledgeneration);
+		printf("Semi Scheduled Generation (Renewable): %.02f MW\r\n",aemo.semischeduledgeneration);
+	}
+}
+
+int http_json_request(struct buffer *out_buf)
 {
   CURL *curl;
   CURLcode res;
@@ -61,7 +156,9 @@ int main(void)
   curl = curl_easy_init();
   if(curl) {
     curl_easy_setopt(curl, CURLOPT_URL, "https://aemo.com.au/aemo/apps/api/report/ELEC_NEM_SUMMARY");
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, out_buf);
 
 #ifdef SKIP_PEER_VERIFICATION
     /*
