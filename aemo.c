@@ -5,6 +5,8 @@
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
 #include <time.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 #define REGION "SA1"
 
@@ -108,6 +110,21 @@ void parse_aemo_request(char *ptr, struct AEMO *aemo)
 	cJSON_Delete(NEM);
 }
 
+int print_aemo_data(struct AEMO *aemo)
+{
+	printf(" Settlement Period: %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+		aemo->settlement.tm_year + 1900,
+		aemo->settlement.tm_mon + 1,
+		aemo->settlement.tm_mday,
+		aemo->settlement.tm_hour,
+		aemo->settlement.tm_min,
+		aemo->settlement.tm_sec);
+	printf(" Price: $%.02f\r\n",aemo->price);
+	printf(" Total Demand: %.02f MW\r\n",aemo->totaldemand);
+	printf(" Export: %.02f MW\r\n",aemo->netinterchange);
+	printf(" Scheduled Generation (Baseload): %.02f MW\r\n",aemo->scheduledgeneration);
+	printf(" Semi Scheduled Generation (Renewable): %.02f MW\r\n",aemo->semischeduledgeneration);
+}
 
 int main(void)
 {
@@ -122,28 +139,140 @@ int main(void)
 
 	struct AEMO aemo;
 
-	/* Allocate a modest buffer now, we can realloc later if needed */
+	time_t now;
+	struct tm timeinfo;
+	int previous_period;
+
+	#define IDLE 	0
+	#define FETCH 	1
+
+	unsigned int state = IDLE;
+
+	FILE *fhandle;
+
+	fhandle = fopen("AEMOdata.csv","a+");
+	if (fhandle == NULL) {
+		printf("Unable to open AEMOdata.csv for writing\r\n");
+		exit(1);
+	}
+
+	/* Populate data */
 	out_buf.data = malloc(16384);
 	out_buf.pos = 0;
 
 	res = http_json_request(&out_buf);
-
 	if(res == CURLE_OK) {
-		//printf("Bytes read %ld\r\n",out_buf.pos);
 		parse_aemo_request(out_buf.data, &aemo);
-		printf("Settlement: %04d-%02d-%02dT%02d:%02d:%02d\r\n",
-			aemo.settlement.tm_year + 1900,
-			aemo.settlement.tm_mon + 1,
-			aemo.settlement.tm_mday,
-			aemo.settlement.tm_hour,
-			aemo.settlement.tm_min,
-			aemo.settlement.tm_sec);
-		printf("Price: $%.02f\r\n",aemo.price);
-		printf("Total Demand: %.02f MW\r\n",aemo.totaldemand);
-		printf("Export: %.02f MW\r\n",aemo.netinterchange);
-		printf("Scheduled Generation (Baseload): %.02f MW\r\n",aemo.scheduledgeneration);
-		printf("Semi Scheduled Generation (Renewable): %.02f MW\r\n",aemo.semischeduledgeneration);
+
+		printf("Current Settlement Period %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+							aemo.settlement.tm_year + 1900,
+							aemo.settlement.tm_mon + 1,
+							aemo.settlement.tm_mday,
+							aemo.settlement.tm_hour,
+							aemo.settlement.tm_min,
+							aemo.settlement.tm_sec);
+
+		previous_period = aemo.settlement.tm_min;
+
+	} else {
+		printf("Failed to download AEMO ELEC_NEM_SUMMARY\r\n");
 	}
+
+	while (1) {
+
+		/* Get Time */
+		time(&now);
+		localtime_r(&now, &timeinfo);
+		//printf("[%02d:%02d] %d\r\n",timeinfo.tm_min, timeinfo.tm_sec, state);
+
+		switch (state) {
+
+			case IDLE:
+				/* 20 seconds after a 5 minute period, start fetching a new JSON file */
+				if ((!(timeinfo.tm_min % 5)) & (timeinfo.tm_sec == 20)) {
+					state = FETCH;
+					printf("Fetching data for next settlement period\r\n");
+				}
+				break;
+
+			case FETCH:
+				/* Start fetching a new JSON file. We keep trying every 5 seconds until */
+				/* the settlement time is different from the previous period */
+
+				/* Allocate a modest buffer now, we can realloc later if needed */
+				out_buf.data = malloc(16384);
+				out_buf.pos = 0;
+
+				/* Fetch JSON file */
+				res = http_json_request(&out_buf);
+				if(res == CURLE_OK) {
+					/* If HTTP request was successful, parse request */
+					parse_aemo_request(out_buf.data, &aemo);
+
+					/* Print a dot each time we make a HTTP request */
+					printf(".");
+
+#if DEBUG
+					/* Print out some statistics for debugging */
+					printf("Fetched Settlement Period %04d-%02d-%02dT%02d:%02d:%02d @",
+							aemo.settlement.tm_year + 1900,
+							aemo.settlement.tm_mon + 1,
+							aemo.settlement.tm_mday,
+							aemo.settlement.tm_hour,
+							aemo.settlement.tm_min,
+							aemo.settlement.tm_sec);
+
+					printf("Current Time %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+						timeinfo.tm_year + 1900,
+						timeinfo.tm_mon + 1,
+						timeinfo.tm_mday,
+						timeinfo.tm_hour,
+						timeinfo.tm_min,
+						timeinfo.tm_sec);
+#endif
+
+					if (aemo.settlement.tm_min != previous_period) {
+						/* Change in settlement time, log new period */
+						previous_period = aemo.settlement.tm_min;
+
+						printf("\r\n");
+						print_aemo_data(&aemo);
+
+						fprintf(fhandle,"%04d-%02d-%02d %02d:%02d:%02d,",
+							timeinfo.tm_year + 1900,
+							timeinfo.tm_mon + 1,
+							timeinfo.tm_mday,
+							timeinfo.tm_hour,
+							timeinfo.tm_min,
+							timeinfo.tm_sec);
+
+						fprintf(fhandle,"%04d-%02d-%02d %02d:%02d:%02d,",
+							aemo.settlement.tm_year + 1900,
+							aemo.settlement.tm_mon + 1,
+							aemo.settlement.tm_mday,
+							aemo.settlement.tm_hour,
+							aemo.settlement.tm_min,
+							aemo.settlement.tm_sec);
+
+						fprintf(fhandle,"%.02f,%.02f,%.02f,%.02f,%.02f\r\n",
+							aemo.price,
+							aemo.totaldemand,
+							aemo.netinterchange,
+							aemo.scheduledgeneration,
+							aemo.semischeduledgeneration);
+
+						fflush(fhandle);
+						/* Success, go back to IDLE */
+						state = IDLE;
+					}
+				}
+				/* No luck, we will try again in five */
+				sleep(5);
+				break;
+		}
+		sleep(1);
+	}
+	fclose(fhandle);
 }
 
 int http_json_request(struct buffer *out_buf)
