@@ -34,7 +34,7 @@ error while loading shared libraries: libcjson.so.1: cannot open shared object f
 ```
 execute
 ```
-$ ldconfig -v
+$ sudo ldconfig -v
 ```
 ### Unsupported protocol
 If you get this message
