@@ -56,7 +56,7 @@ It may be because curl hasn't been compiled with SSL. Run
 ```
 $ curl -V
 ```
-and check if https is listed as a protocol.
+and check if https is listed as a protocol. If not, you may not have OpenSSL installed correctly.
 
 
 
