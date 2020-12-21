@@ -7,7 +7,18 @@ This JSON file includes price and generation/demand data useful for making/scrip
 ## Dependencies
 This code uses the following libraries
 * cURL (https://curl.haxx.se/)
+  * Requires OpenSSL for https support (https://www.openssl.org/)
 * cJSON (https://github.com/DaveGamble/cJSON)
+
+## Install OpenSSL
+```sh
+$ wget https://www.openssl.org/source/openssl-1.1.1i.tar.gz
+$ tar -xzf openssl-1.1.1i.tar.gz
+$ cd openssl-1.1.1i/
+$ ./config
+$ make
+$ sudo make install
+```
 
 ## Install cURL
 ```sh
