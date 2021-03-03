@@ -9,6 +9,8 @@
 #include <unistd.h>
 
 #define REGION "SA1"
+#define IDLE 	0
+#define FETCH 	1
 
 char *strptime(const char *s, const char *format, struct tm *tm);
 
@@ -129,6 +131,7 @@ int print_aemo_data(struct AEMO *aemo)
 int main(void)
 {
 	CURLcode res;
+	unsigned char number_tries;
 
 	char *data;
 
@@ -142,9 +145,6 @@ int main(void)
 	time_t now;
 	struct tm timeinfo;
 	int previous_period;
-
-	#define IDLE 	0
-	#define FETCH 	1
 
 	unsigned int state = IDLE;
 
@@ -191,6 +191,7 @@ int main(void)
 				/* 20 seconds after a 5 minute period, start fetching a new JSON file */
 				if ((!(timeinfo.tm_min % 5)) & (timeinfo.tm_sec == 20)) {
 					state = FETCH;
+					number_tries = 0;
 					printf("Fetching data for next settlement period\r\n");
 				}
 				break;
@@ -212,6 +213,7 @@ int main(void)
 					/* Print a dot each time we make a HTTP request */
 					printf(".");
 					fflush(stdout);
+					number_tries++;
 
 #if DEBUG
 					/* Print out some statistics for debugging */
@@ -247,6 +249,8 @@ int main(void)
 							timeinfo.tm_hour,
 							timeinfo.tm_min,
 							timeinfo.tm_sec);
+
+						fprintf(fhandle,"%d,", number_tries);
 
 						fprintf(fhandle,"%04d-%02d-%02d %02d:%02d:%02d,",
 							aemo.settlement.tm_year + 1900,
