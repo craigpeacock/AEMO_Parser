@@ -290,7 +290,7 @@ int http_json_request(struct buffer *out_buf)
 
 	curl = curl_easy_init();
 	if(curl) {
-		curl_easy_setopt(curl, CURLOPT_URL, "https://aemo.com.au/aemo/apps/api/report/ELEC_NEM_SUMMARY");
+		curl_easy_setopt(curl, CURLOPT_URL, "https://visualisations.aemo.com.au/aemo/apps/api/report/ELEC_NEM_SUMMARY");
 		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, out_buf);
