@@ -30,7 +30,7 @@ static void print_usage(char *prg)
 int print_aemo_data(struct AEMO *aemo)
 {
 	printf("\r\n");
-	printf(" Settlement Period: %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+	printf(" Settlement Period: %04d-%02d-%02d %02d:%02d:%02d\r\n",
 		aemo->settlement.tm_year + 1900,
 		aemo->settlement.tm_mon + 1,
 		aemo->settlement.tm_mday,
@@ -39,9 +39,9 @@ int print_aemo_data(struct AEMO *aemo)
 		aemo->settlement.tm_sec);
 	printf(" Price: $%.02f\r\n",aemo->price);
 	printf(" Total Demand: %.02f MW\r\n",aemo->totaldemand);
-	printf(" Export: %.02f MW\r\n",aemo->netinterchange);
 	printf(" Scheduled Generation (Baseload): %.02f MW\r\n",aemo->scheduledgeneration);
 	printf(" Semi Scheduled Generation (Renewable): %.02f MW\r\n",aemo->semischeduledgeneration);
+	printf(" Export: %.02f MW\r\n",aemo->netinterchange);
 	fflush(stdout);
 }
 
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 	if(res == CURLE_OK) {
 		parse_aemo_request(out_buf.data, &aemo);
 
-		printf("Current Settlement Period %04d-%02d-%02dT%02d:%02d:%02d\r\n",
+		printf("Current settlement period %04d-%02d-%02d %02d:%02d:%02d\r\n",
 			aemo.settlement.tm_year + 1900,
 			aemo.settlement.tm_mon + 1,
 			aemo.settlement.tm_mday,
@@ -217,7 +217,7 @@ int main(int argc, char **argv)
 				if ((!(timeinfo.tm_min % 5)) & (timeinfo.tm_sec == 20)) {
 					state = FETCH;
 					number_tries = 0;
-					printf("Fetching data for next settlement period\r\n");
+					printf("Fetching data for next settlement period");
 				}
 				break;
 
