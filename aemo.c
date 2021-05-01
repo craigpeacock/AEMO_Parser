@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <signal.h>
 #include "http.h"
 #include "MQTTClient.h"
 #include "mqtt.h"
@@ -14,6 +15,8 @@
 
 #define IDLE 	0
 #define FETCH 	1
+
+bool exitflag;
 
 static void print_usage(char *prg)
 {
@@ -93,6 +96,10 @@ int log_prices_mqtt(MQTTClient client, char * topic, struct AEMO *aemo)
 		aemo->semischeduledgeneration);
 
 		MQTT_pub(client, topic ,mqtt_str);
+}
+
+void ctrlc_handler(int s) {
+	exitflag = 1;
 }
 
 int main(int argc, char **argv)
@@ -181,6 +188,14 @@ int main(int argc, char **argv)
 		//printf("Password: %s\r\n",mqttpassword);
 		client = MQTT_connect(mqttbrokerURI, mqttusername, mqttpassword);
 	}
+	
+	/* Init CTRL-C handler */
+	exitflag = 0;
+	struct sigaction sigIntHandler;
+	sigIntHandler.sa_handler = ctrlc_handler;
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigaction(SIGINT, &sigIntHandler, NULL);
 
 	/* Populate data */
 	out_buf.data = malloc(16384);
@@ -204,7 +219,7 @@ int main(int argc, char **argv)
 		printf("Failed to download AEMO ELEC_NEM_SUMMARY\r\n");
 	}
 
-	while (1) {
+	while (!exitflag) {
 
 		/* Get Time */
 		time(&now);
@@ -258,6 +273,7 @@ int main(int argc, char **argv)
 		}
 		sleep(1);
 	}
+	printf("\r\nClosing...\r\n");	
 	if (logtofile) fclose(fhandle);
 	if (logtomqtt) MQTT_disconnect(client);
 }
