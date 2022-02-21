@@ -14,9 +14,9 @@ This code uses the following libraries
 
 ## Install OpenSSL
 ```sh
-$ wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
-$ tar -xzf openssl-1.1.1k.tar.gz
-$ cd openssl-1.1.1k/
+$ wget https://www.openssl.org/source/openssl-1.1.1m.tar.gz
+$ tar -xzf openssl-1.1.1m.tar.gz
+$ cd openssl-1.1.1m/
 $ ./config
 $ make
 $ sudo make install
@@ -24,28 +24,29 @@ $ sudo make install
 
 ## Install cURL
 ```sh
-$ wget https://curl.se/download/curl-7.76.1.tar.gz
-$ tar -xzf curl-7.76.1.tar.gz
-$ cd curl-7.76.1
+$ wget https://curl.se/download/curl-7.81.0.tar.gz
+$ tar -xzf curl-7.81.0.tar.gz
+$ cd curl-7.81.0
+$ ./configure --with-openssl
 $ make
 $ sudo make install
 ```
 ## Install cJSON
 ```sh
-$ wget https://github.com/DaveGamble/cJSON/archive/v1.7.14.tar.gz
-$ tar -xzf v1.7.14.tar.gz
-$ cd cJSON-1.7.14
+$ wget https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.15.tar.gz
+$ tar -xzf v1.7.15.tar.gz
+$ cd cJSON-1.7.15
 $ make
 $ sudo make install
 ```
 
 ## Install paho libraries
 ```
-$ wget https://github.com/eclipse/paho.mqtt.c/archive/refs/tags/v1.3.8.tar.gz
-$ tar -xzf v1.3.8.tar.gz
-$ cd paho.mqtt.c-1.3.8
+$ wget https://github.com/eclipse/paho.mqtt.c/archive/refs/tags/v1.3.9.tar.gz
+$ tar -xzf v1.3.9.tar.gz
+$ cd paho.mqtt.c-1.3.9
 $ make
-$ make install
+$ sudo make install
 ```
 
 ## Potential errors
