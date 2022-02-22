@@ -1,6 +1,4 @@
 
-#define REGION "SA1"
-
 struct AEMO {
 	struct tm settlement;
 	double price;
@@ -10,4 +8,4 @@ struct AEMO {
 	double semischeduledgeneration;
 };
 
-void parse_aemo_request(char *ptr, struct AEMO *aemo);
+void parse_aemo_request(char *ptr, struct AEMO *aemo, char *region);

@@ -20,7 +20,8 @@ bool exitflag;
 
 static void print_usage(char *prg)
 {
-	fprintf(stderr, "Usage: %s [options]\n",prg);
+	fprintf(stderr, "Usage: %s region [options]\n\n",prg);
+	fprintf(stderr, "Regions: NSW1, QLD1, SA1, TAS1, VIC1\n\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "	-l <filename> 		Log to file\n");
 	fprintf(stderr, "	-m <broker URI> 	Log to MQTT Broker\n");
@@ -112,6 +113,7 @@ int main(int argc, char **argv)
 	char * mqtttopic = topic;
 	char * mqttusername = NULL;
 	char * mqttpassword = NULL;
+	char * nemregion = NULL;
 	bool logtomqtt = false;
 
 	printf("AEMO <-> MQTT Connector\r\n");
@@ -150,6 +152,18 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (optind >= argc) {
+		printf("No region specified\r\n");
+		print_usage(basename(argv[0]));
+		exit(1);
+	}
+	
+	if (argv[optind] != NULL){
+		nemregion = (char *)argv[optind];
+	}
+	
+	printf("Region = %s\r\n", nemregion);
+		
 	CURLcode res;
 	unsigned char number_tries;
 
@@ -161,7 +175,7 @@ int main(int argc, char **argv)
 	};
 
 	struct AEMO aemo;
-
+	
 	time_t now;
 	struct tm timeinfo;
 	int previous_period;
@@ -203,7 +217,7 @@ int main(int argc, char **argv)
 
 	res = http_json_request(&out_buf);
 	if(res == CURLE_OK) {
-		parse_aemo_request(out_buf.data, &aemo);
+		parse_aemo_request(out_buf.data, &aemo, nemregion);
 
 		printf("Current settlement period %04d-%02d-%02d %02d:%02d:%02d\r\n",
 			aemo.settlement.tm_year + 1900,
@@ -248,7 +262,7 @@ int main(int argc, char **argv)
 				res = http_json_request(&out_buf);
 				if(res == CURLE_OK) {
 					/* If HTTP request was successful, parse request */
-					parse_aemo_request(out_buf.data, &aemo);
+					parse_aemo_request(out_buf.data, &aemo, nemregion);
 
 					/* Print a dot each time we make a HTTP request */
 					printf(".");

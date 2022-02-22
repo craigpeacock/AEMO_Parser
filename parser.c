@@ -7,7 +7,7 @@
 
 char *strptime(const char *s, const char *format, struct tm *tm);
 
-void parse_aemo_request(char *ptr, struct AEMO *aemo)
+void parse_aemo_request(char *ptr, struct AEMO *aemo, char *region)
 {
 	const cJSON *regions;
 	const cJSON *parameter;
@@ -29,7 +29,7 @@ void parse_aemo_request(char *ptr, struct AEMO *aemo)
 		cJSON *name = cJSON_GetObjectItemCaseSensitive(parameter, "REGIONID");
 		if (name != NULL) {
 			//printf("Region %s\n",name->valuestring);
-			if (strcmp(name->valuestring, REGION) == 0) {
+			if (strcmp(name->valuestring, region) == 0) {
 				cJSON *settlement = cJSON_GetObjectItemCaseSensitive(parameter, "SETTLEMENTDATE");
 				if (settlement != NULL) {
 					/* String in the format of 2020-12-19T15:10:00 */
